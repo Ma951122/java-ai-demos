@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>DeepSeek SSE测试</title>
+  <style>
+    #answer{
+      white-space: pre-wrap;
+      margin-top:20px;
+      padding:10px;
+      border:1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+<div>
+  <input id="question" type="text" style="width:400px" value="用简单几句话介绍SpringBoot">
+  <button onclick="startChat()">开始流式对话</button>
+</div>
+<div id="answer"></div>
+
+<script>
+  let source = null;
+  const answerDom = document.getElementById("answer");
+
+  function startChat(){
+    answerDom.innerText = "";
+    // 关闭上一次连接
+    if(source){
+      source.close();
+    }
+    const q = document.getElementById("question").value;
+    // EventSource GET请求
+    source = new EventSource(`/deepseek/stream?question=${encodeURIComponent(q)}`);
+    source.onmessage = function(e){
+      answerDom.innerText += e.data;
+    }
+    source.onerror = function(err){
+      answerDom.innerText += "\n【连接结束/异常】";
+      source.close();
+    }
+  }
+</script>
+</body>
+</html>
