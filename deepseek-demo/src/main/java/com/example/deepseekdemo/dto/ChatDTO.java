@@ -9,7 +9,6 @@ public class ChatDTO {
 
     @Data
     public static class ChatMessage {
-        // role: system / user / assistant
         private String role;
         private String content;
     }

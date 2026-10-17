@@ -2,43 +2,51 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>DeepSeek SSE测试</title>
-  <style>
-    #answer{
-      white-space: pre-wrap;
-      margin-top:20px;
-      padding:10px;
-      border:1px solid #ccc;
-    }
-  </style>
+  <title>DeepSeek SSE多轮对话</title>
 </head>
 <body>
 <div>
-  <input id="question" type="text" style="width:400px" value="用简单几句话介绍SpringBoot">
-  <button onclick="startChat()">开始流式对话</button>
+  <textarea id="msgInput" style="width:500px;height:80px" placeholder="输入消息"></textarea>
+  <button onclick="sendMsg()">发送</button>
 </div>
-<div id="answer"></div>
+<div id="result" style="white-space:pre-wrap;margin-top:20px;"></div>
 
 <script>
-  let source = null;
-  const answerDom = document.getElementById("answer");
+  // 保存对话历史，多轮对话核心
+  let messages = [];
+  async function sendMsg(){
+    const text = document.getElementById("msgInput").value.trim();
+    if(!text) return;
+    messages.push({"role":"user", "content": text});
+    document.getElementById("msgInput").value = "";
+    const resultDom = document.getElementById("result");
+    resultDom.innerText = "";
 
-  function startChat(){
-    answerDom.innerText = "";
-    // 关闭上一次连接
-    if(source){
-      source.close();
+    const resp = await fetch("/api/chat/stream",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({messages: messages})
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n");
+      for(let line of lines){
+        if(line.startsWith("data: ")){
+          const data = line.substring(6);
+          if(data === "[DONE]") continue;
+          const obj = JSON.parse(data);
+          fullText += obj.content;
+          resultDom.innerText = fullText;
+        }
+      }
     }
-    const q = document.getElementById("question").value;
-    // EventSource GET请求
-    source = new EventSource(`/deepseek/stream?question=${encodeURIComponent(q)}`);
-    source.onmessage = function(e){
-      answerDom.innerText += e.data;
-    }
-    source.onerror = function(err){
-      answerDom.innerText += "\n【连接结束/异常】";
-      source.close();
-    }
+    // 把AI回复加入历史，实现多轮
+    messages.push({"role":"assistant", "content": fullText});
   }
 </script>
 </body>
